@@ -9,6 +9,9 @@
 
 using namespace glm;
 
+uint32_t imageWidth = 640;
+uint32_t imageHeight = 480;
+
 int main()
 {
 	GLFWwindow* window;
@@ -20,7 +23,7 @@ int main()
 	}
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(imageWidth, imageHeight, "Hello World", NULL, NULL);
 	if (!window)
 	{
 		glfwTerminate();
@@ -31,13 +34,34 @@ int main()
 	glfwMakeContextCurrent(window);
 
 	/* Load all OpenGL functions using the glfw loader function */
-	gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+	{
+		printf("Failed to initialize OpenGL context\n");
+		return -1;
+	}
+
+	float positions[6] =
+	{
+		-1.0f, -1.0f,
+		 1.0f, -1.0f,
+		 0.0f,  1.0f
+	};
+
+	GLuint buffer;
+	glGenBuffers(1, &buffer);
+	glBindBuffer(GL_ARRAY_BUFFER, buffer);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), positions, GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{
 		/* Render here */
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
