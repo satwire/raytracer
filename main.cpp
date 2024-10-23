@@ -7,14 +7,13 @@
 #include <glm/mat4x4.hpp> // glm::mat4
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
+#include <vector>
 
 using namespace std;
 using namespace glm;
 
-typedef unsigned int uint;
-
-uint imageWidth = 640;
-uint imageHeight = 480;
+const uint imageWidth = 640;
+const uint imageHeight = 480;
 
 static uint CompileShader(uint type, const string& source)
 {
@@ -29,7 +28,7 @@ static uint CompileShader(uint type, const string& source)
 	{
 		int length;
 		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-		char* message = (char*)_malloca(length * sizeof(char));
+		auto* message = (char*)_malloca(length * sizeof(char));
 		glGetShaderInfoLog(id, length, &length, message);
 		std::cout << "Failed to compile" << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << "shader!" << std::endl;
 		glDeleteShader(id);
@@ -67,7 +66,7 @@ int main()
 	}
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(imageWidth, imageHeight, "Hello World", NULL, NULL);
+	window = glfwCreateWindow(imageWidth, imageHeight, "Hello World", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
@@ -85,8 +84,7 @@ int main()
 	}
 
 	/* Assign triangle vertex positions */
-	float positions[6] =
-	{
+	std::vector<float> positions = {
 		-1.0f, -1.0f,
 		 1.0f, -1.0f,
 		 0.0f,  1.0f
@@ -96,11 +94,34 @@ int main()
 	uint buffer;
 	glGenBuffers(1, &buffer);
 	glBindBuffer(GL_ARRAY_BUFFER, buffer);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), positions, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(float), &positions[0], GL_STATIC_DRAW);
 
 	/* Set vertex layout and attributes */
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+
+	string vertexShader =
+		"#version 330 core\n"
+		"\n"
+		"layout(location = 0) in vec4 position;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"\tgl_Position = position;\n"
+		"}\n";
+
+	string fragmentShader =
+		"#version 330 core\n"
+		"\n"
+		"layout(location = 0) out vec4 color;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"\tcolor = vec4(1.0, 0.0, 0.0, 1.0);\n"
+		"}\n";
+
+	uint shader = CreateShader(vertexShader, fragmentShader);
+	glUseProgram(shader);
 
 	string vertexShader =
 		"#version 330 core\n"
