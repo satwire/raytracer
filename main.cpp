@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <iostream>
 #include "glad/glad.h"
+#include <array>
 #include "GLFW/glfw3.h"
 #include <glm/vec3.hpp> // glm::vec3
 #include <glm/vec4.hpp> // glm::vec4
 #include <glm/mat4x4.hpp> // glm::mat4
 #include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
-#include <vector>
 
 using namespace std;
 using namespace glm;
@@ -84,7 +84,7 @@ int main()
 	}
 
 	/* Assign triangle vertex positions */
-	std::vector<float> positions = {
+	std::array<float, 6> positions{
 		-1.0f, -1.0f,
 		 1.0f, -1.0f,
 		 0.0f,  1.0f
@@ -118,29 +118,6 @@ int main()
 		"void main()\n"
 		"{\n"
 		"\tcolor = vec4(1.0, 0.0, 0.0, 1.0);\n"
-		"}\n";
-
-	uint shader = CreateShader(vertexShader, fragmentShader);
-	glUseProgram(shader);
-
-	string vertexShader =
-		"#version 330 core\n"
-		"\n"
-		"layout(location = 0) in vec4 position;\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"	gl_Position = position;\n"
-		"}\n";
-
-	string fragmentShader =
-		"#version 330 core\n"
-		"\n"
-		"layout(location = 0) out vec4 color;\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"	color = vec4(1.0, 0.0, 0.0, 1.0);\n"
 		"}\n";
 
 	uint shader = CreateShader(vertexShader, fragmentShader);
