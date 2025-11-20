@@ -14,14 +14,26 @@
 using namespace std;
 using namespace glm;
 
-const uint imageWidth = 640;
-const uint imageHeight = 480;
+uint WINDOW_WIDTH = 640;
+uint WINDOW_HEIGHT = 480;
+
+void setupCudaGL(int width, int height); // Forward declaration
+
+void framebuffer_size_callback(GLFWwindow *window, int width, int height)
+{
+	glViewport(0, 0, width, height);
+	WINDOW_WIDTH = width;
+	WINDOW_HEIGHT = height;
+	setupCudaGL(width, height);
+}
 
 // Declare the CUDA rendering kernel
 extern "C" void renderCudaKernel(uchar4 *outputData, int width, int height);
 
 // CUDA Graphics Resource
 cudaGraphicsResource_t cuda_pbo_resource;
+uint pbo = 0;	  // Initialize to 0 to indicate no resource is allocated
+uint texture = 0; // Initialize to 0
 
 // Function to check for CUDA errors
 static void CheckCudaError(cudaError_t err, const char *file, int line)
@@ -69,10 +81,10 @@ void printCudaDeviceInfo()
 
 static string ReadFile(const string &filepath)
 {
-    ifstream stream(filepath);
-    stringstream ss;
-    ss << stream.rdbuf();
-    return ss.str();
+	ifstream stream(filepath);
+	stringstream ss;
+	ss << stream.rdbuf();
+	return ss.str();
 }
 
 static uint CompileShader(uint type, const string &source)
@@ -116,6 +128,31 @@ static uint CreateShader(const string &vertexShader, const string &fragmentShade
 	return program;
 }
 
+void setupCudaGL(int width, int height)
+{
+	/* Clean up existing resources if they were already created */
+	if (pbo != 0)
+	{
+		CUDA_CHECK(cudaGraphicsUnregisterResource(cuda_pbo_resource));
+		glDeleteBuffers(1, &pbo);
+		glDeleteTextures(1, &texture);
+	}
+
+	/* Create OpenGL texture */
+	glGenBuffers(1, &pbo);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER, width * height * sizeof(uchar4), nullptr, GL_STREAM_DRAW);
+
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+	/* Register PBO with CUDA */
+	CUDA_CHECK(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pbo, cudaGraphicsMapFlagsWriteDiscard));
+}
+
 int main()
 {
 	GLFWwindow *window;
@@ -127,12 +164,14 @@ int main()
 	}
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(imageWidth, imageHeight, "Raytracer", nullptr, nullptr);
+	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Raytracer", nullptr, nullptr);
 	if (!window)
 	{
 		glfwTerminate();
 		return -1;
 	}
+
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
@@ -184,21 +223,7 @@ int main()
 	/* Get device info */
 	printCudaDeviceInfo();
 
-	/* Create OpenGL texture */
-	uint pbo;
-	glGenBuffers(1, &pbo);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-	glBufferData(GL_PIXEL_UNPACK_BUFFER, imageWidth * imageHeight * sizeof(uchar4), nullptr, GL_STREAM_DRAW);
-
-	uint texture;
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imageWidth, imageHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-
-	/* Register PBO with CUDA */
-	CUDA_CHECK(cudaGraphicsGLRegisterBuffer(&cuda_pbo_resource, pbo, cudaGraphicsMapFlagsWriteDiscard));
+	setupCudaGL(WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
@@ -213,7 +238,7 @@ int main()
 		CUDA_CHECK(cudaGraphicsResourceGetMappedPointer((void **)&d_ptr, &num_bytes, cuda_pbo_resource));
 
 		/* Launch CUDA kernel */
-		renderCudaKernel(d_ptr, imageWidth, imageHeight);
+		renderCudaKernel(d_ptr, WINDOW_WIDTH, WINDOW_HEIGHT);
 
 		/* Unmap the PBO */
 		CUDA_CHECK(cudaGraphicsUnmapResources(1, &cuda_pbo_resource, 0));
@@ -221,7 +246,7 @@ int main()
 		/* Bind texture and draw */
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imageWidth, imageHeight, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
 		glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -235,8 +260,6 @@ int main()
 
 	/* Cleanup */
 	CUDA_CHECK(cudaGraphicsUnregisterResource(cuda_pbo_resource));
-	glDeleteBuffers(1, &pbo);
-	glDeleteTextures(1, &texture);
 	glDeleteProgram(shader);
 	glDeleteBuffers(1, &vbo);
 
