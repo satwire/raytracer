@@ -3,11 +3,12 @@
 #include "glad/glad.h"
 #include <array>
 #include "GLFW/glfw3.h"
-#include <glm/vec3.hpp> // glm::vec3
-#include <glm/vec4.hpp> // glm::vec4
-#include <glm/mat4x4.hpp> // glm::mat4
-#include <glm/ext/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale
+#include <glm/vec3.hpp>					 // glm::vec3
+#include <glm/vec4.hpp>					 // glm::vec4
+#include <glm/mat4x4.hpp>				 // glm::mat4
+#include <glm/ext/matrix_transform.hpp>	 // glm::translate, glm::rotate, glm::scale
 #include <glm/ext/matrix_clip_space.hpp> // glm::perspective
+#include <cuda_runtime.h>
 
 using namespace std;
 using namespace glm;
@@ -15,10 +16,51 @@ using namespace glm;
 const uint imageWidth = 640;
 const uint imageHeight = 480;
 
-static uint CompileShader(uint type, const string& source)
+// Function to check for CUDA errors
+static void CheckCudaError(cudaError_t err, const char *file, int line)
+{
+	if (err != cudaSuccess)
+	{
+		fprintf(stderr, "CUDA Error: %s at %s:%d\n", cudaGetErrorString(err), file, line);
+		exit(EXIT_FAILURE);
+	}
+}
+
+#define CUDA_CHECK(err) CheckCudaError(err, __FILE__, __LINE__)
+
+// Function to print CUDA device information
+void printCudaDeviceInfo()
+{
+	int deviceCount;
+	CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
+
+	if (deviceCount == 0)
+	{
+		cout << "No CUDA devices found." << endl;
+		return;
+	}
+
+	cout << "CUDA Device Info:" << endl;
+	for (int i = 0; i < deviceCount; ++i)
+	{
+		cudaDeviceProp deviceProp;
+		CUDA_CHECK(cudaGetDeviceProperties(&deviceProp, i));
+
+		cout << "  Device " << i << ": " << deviceProp.name << endl;
+		cout << "    Compute Capability: " << deviceProp.major << "." << deviceProp.minor << endl;
+		cout << "    Total Global Memory: " << deviceProp.totalGlobalMem / (1024 * 1024) << " MB" << endl;
+		cout << "    Multiprocessors: " << deviceProp.multiProcessorCount << endl;
+		cout << "    CUDA Cores: " << deviceProp.multiProcessorCount * ((deviceProp.major == 9) ? 128 : ((deviceProp.major >= 3) ? 192 : 0)) << " \n"; // Simplified estimation
+		cout << "    Clock Rate: " << deviceProp.clockRate / 1000 << " MHz" << endl;
+		cout << "    Memory Clock Rate: " << deviceProp.memoryClockRate / 1000 << " MHz" << endl;
+		cout << "    ECC Enabled: " << (deviceProp.ECCEnabled ? "Yes" : "No") << endl;
+	}
+}
+
+static uint CompileShader(uint type, const string &source)
 {
 	uint id = glCreateShader(type);
-	const char* src = source.c_str();
+	const char *src = source.c_str();
 	glShaderSource(id, 1, &src, nullptr);
 	glCompileShader(id);
 
@@ -28,7 +70,7 @@ static uint CompileShader(uint type, const string& source)
 	{
 		int length;
 		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
-		auto* message = (char*)_malloca(length * sizeof(char));
+		auto *message = (char *)_malloca(length * sizeof(char));
 		glGetShaderInfoLog(id, length, &length, message);
 		std::cout << "Failed to compile" << (type == GL_VERTEX_SHADER ? "vertex" : "fragment") << "shader!" << std::endl;
 		glDeleteShader(id);
@@ -38,7 +80,7 @@ static uint CompileShader(uint type, const string& source)
 	return id;
 }
 
-static uint CreateShader(const string& vertexShader, const string& fragmentShader)
+static uint CreateShader(const string &vertexShader, const string &fragmentShader)
 {
 	uint program = glCreateProgram();
 	uint vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
@@ -57,7 +99,7 @@ static uint CreateShader(const string& vertexShader, const string& fragmentShade
 
 int main()
 {
-	GLFWwindow* window;
+	GLFWwindow *window;
 
 	/* Initialize the library */
 	if (!glfwInit())
@@ -86,9 +128,8 @@ int main()
 	/* Assign triangle vertex positions */
 	std::array<float, 6> positions{
 		-1.0f, -1.0f,
-		 1.0f, -1.0f,
-		 0.0f,  1.0f
-	};
+		1.0f, -1.0f,
+		0.0f, 1.0f};
 
 	/* Generate an OpenGL buffer */
 	uint buffer;
@@ -122,6 +163,9 @@ int main()
 
 	uint shader = CreateShader(vertexShader, fragmentShader);
 	glUseProgram(shader);
+
+	/* Get device info */
+	printCudaDeviceInfo();
 
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
