@@ -9,7 +9,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 
-find_package(CUDA REQUIRED)
+find_package(CUDAToolkit REQUIRED)
 find_package(OpenGL REQUIRED)
 
 add_executable(raytracer 
@@ -27,6 +27,7 @@ target_include_directories(raytracer PRIVATE
 target_link_libraries(raytracer PRIVATE 
     "${CMAKE_CURRENT_SOURCE_DIR}/lib/GLFW/lib-vc2019/glfw3.lib"
     OpenGL::GL
+    CUDA::cudart
 )
 
 target_compile_definitions(raytracer PRIVATE
