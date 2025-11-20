@@ -64,6 +64,17 @@ void printCudaDeviceInfo()
 	}
 }
 
+#include <fstream>
+#include <sstream>
+
+static string ReadFile(const string &filepath)
+{
+    ifstream stream(filepath);
+    stringstream ss;
+    ss << stream.rdbuf();
+    return ss.str();
+}
+
 static uint CompileShader(uint type, const string &source)
 {
 	uint id = glCreateShader(type);
@@ -159,32 +170,9 @@ int main()
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void *)(2 * sizeof(float)));
 
-	string vertexShader =
-		"#version 330 core\n"
-		"\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 texCoord;\n"
-		"\n"
-		"out vec2 v_texCoord;\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"\tgl_Position = position;\n"
-		"\tv_texCoord = texCoord;\n"
-		"}\n";
+	string vertexShader = ReadFile("shaders/shader.vert");
 
-	string fragmentShader =
-		"#version 330 core\n"
-		"\n"
-		"layout(location = 0) out vec4 color;\n"
-		"\n"
-		"in vec2 v_texCoord;\n"
-		"uniform sampler2D u_texture;\n"
-		"\n"
-		"void main()\n"
-		"{\n"
-		"\tcolor = texture(u_texture, v_texCoord);\n"
-		"}\n";
+	string fragmentShader = ReadFile("shaders/shader.frag");
 
 	uint shader = CreateShader(vertexShader, fragmentShader);
 	glUseProgram(shader);

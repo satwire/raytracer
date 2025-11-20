@@ -14,8 +14,10 @@ find_package(OpenGL REQUIRED)
 
 add_executable(raytracer 
     main.cpp 
-    kernel.cu
+    cuda/kernel.cu
     "lib/glad/src/glad.c"
+    shaders/shader.vert
+    shaders/shader.frag
 )
 
 target_include_directories(raytracer PRIVATE 
