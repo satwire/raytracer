@@ -21,6 +21,8 @@ void setupCudaGL(int width, int height); // Forward declaration
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height)
 {
+	width = std::max(1, width);
+	height = std::max(1, height);
 	glViewport(0, 0, width, height);
 	WINDOW_WIDTH = width;
 	WINDOW_HEIGHT = height;
@@ -172,6 +174,7 @@ int main()
 	}
 
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetWindowSizeLimits(window, 320, 200, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
 	/* Make the window's context current */
 	glfwMakeContextCurrent(window);
